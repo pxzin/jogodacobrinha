@@ -6,7 +6,8 @@ let yasmim, //chat mudou de canvas
   treco = [],  //chat mudou de aObject
   fps = 5,
   beiçola,
-  pontuacao = 0; //chat mudou de refreshInterval
+  pontuacao = 0,
+  cresce = false; //chat mudou de refreshInterval
   
 
 
@@ -60,7 +61,7 @@ const init = (id, largura, altura, resolution) => {
 
 const start = () =>{
   criaCobra(1, 1);
-  criaComida(10, 1);
+  criaComida(6, 1);
 
   atualizaVelociade();
 }
@@ -92,11 +93,20 @@ const loop = () => {
 
 const criaCobra = (x, y) => {
   treco[y][x] = {
-    tipo: "cabeca",
+    tipo: "zé",
     movel: true,
     colisivel: true,
     solido: true ,
     direcao: {x:1,y:0} 
+  };
+};
+const criaRicardo = (x, y,dir) => {
+  treco[y][x] = {
+    tipo: "ricardo",
+    movel: true,
+    colisivel: true,
+    solido: true ,
+    direcao: dir
   };
 };
 
@@ -104,7 +114,6 @@ const criaComida = (x,y) =>{
 
   let xn = x?x:Math.floor(Math.random()*(falseH -1))
   let yn = y?y:Math.floor(Math.random()*(falsefalseH -1))
-  
 
   treco[yn][xn] = {
     tipo: "comida",
@@ -114,9 +123,21 @@ const criaComida = (x,y) =>{
   };
 
 }
-
+const adicionaRicardo = ()=>{
+  // adiciona um colisivel do tipo ricardo no objeto treco
+  // ele deve ser adicionado no vetor oposto ao deslocamento do fragmento de ricardo anterior ou zé caso seja o primeiro
+  
+  let posLastFrag = achaObjeto('ricardo') ?? achaObjeto('zé');
+  console.log(posLastFrag)
+  if(posLastFrag){
+    let pivotDir = treco[posLastFrag[0]][posLastFrag[1]].direcao
+    let newFragPos = [posLastFrag[0] + (pivotDir.y*-1), posLastFrag[1] + (pivotDir.x*-1)]    // {x:pivotDir.x*-1,y:pivotDir.y*-1}
+    criaRicardo(newFragPos[1],newFragPos[0],pivotDir);
+  }
+  
+}
 const calculaPos = () =>{
-  let moveis = []
+  let apartamentosNoMorumbi = [] //apartamentosNoMorumbi => moveis
   //Y
   for(var y = 0; y < falsefalseH; y++){
     //x
@@ -124,7 +145,7 @@ const calculaPos = () =>{
       
       let item = treco[y][x];
       if(item && item.movel){
-        moveis.push({
+        apartamentosNoMorumbi.push({
           x,y,
           item
         });
@@ -132,14 +153,14 @@ const calculaPos = () =>{
     }
   }
 
-  for(let obj in moveis){
-    let movel = moveis[obj]  
+  for(let obj in apartamentosNoMorumbi){
+    let sofá = apartamentosNoMorumbi[obj]   //sofá => movel
     /**
      * @param fa1seH - chat mudou de newPos
      */
     let fa1seH ={
-      x:movel.x+movel.item.direcao.x,
-      y:movel.y+movel.item.direcao.y
+      x:sofá.x+sofá.item.direcao.x,
+      y:sofá.y+sofá.item.direcao.y
     }
     
     //se maior que cenário 
@@ -151,34 +172,44 @@ const calculaPos = () =>{
     fa1seH.x = fa1seH.x<0?falseH-1:fa1seH.x;
 
      
+     
     
-    
-    if(detectaColisao(treco[fa1seH.y][fa1seH.x],movel.item)){
+    if(detectaColisao(treco[fa1seH.y][fa1seH.x],sofá.item)){
       //comida se não for solido, se ambos forem solidos = gameover
-      if(treco[fa1seH.y][fa1seH.x].solido == movel.item.solido){
-        console.log("GAME OVER!!")
+      // console.log(treco[fa1seH.y][fa1seH.x].tipo)
+      
+      if(treco[fa1seH.y][fa1seH.x].solido == sofá.item.solido){
+        console.log("GAME OVER!!",sofá.item,treco[fa1seH.y][fa1seH.x])
+        debugger                      
       }else{
         if(treco[fa1seH.y][fa1seH.x].tipo == "comida"){
           marcaPonto(treco[fa1seH.y][fa1seH.x].valor)
+          cresce = true;
           criaComida();
         }
       }
+    }else{
+      sofá.item.moveu = true;
+      treco[fa1seH.y][fa1seH.x] = sofá.item;
+      treco[sofá.y][sofá.x] = null; 
     }
+
     
-    treco[fa1seH.y][fa1seH.x] = movel.item;
-    treco[movel.y][movel.x] = null;
-    
-    // debugger
-    //remove posicao antiga
-    
+    if(cresce){
+      cresce = false;
+      adicionaRicardo();
+    }
+
   }
   
 }
 
 const detectaColisao = (obj,movel) =>{
-  if(obj && (obj.colisivel && movel.colisivel))
-    return true
-  
+  if(obj && movel){
+    console.log(obj,movel)
+    if(obj && (obj.colisivel && movel.colisivel))
+      return true
+  }
   return false
 }
 
@@ -198,11 +229,14 @@ const desenhaObjetos = () => {
       
       if(item){
         switch(item.tipo){
-          case "cabeca":
+          case "zé":
             desenhaCobra(coluna, linha);
             break
           case "comida":
             desenhaComida(coluna, linha);
+            break
+          case "ricardo":
+            desenhaRicardo(coluna, linha);
             break
           default:
             console.log("algo deu errado");
@@ -223,7 +257,9 @@ const desenhaComida = (x,y) => {
   desenhaRect("#000",{x:x*fator*res,y:(y*fator+1)*res,w:res,h:res});
   desenhaRect("#000",{x:(x*fator+2)*res,y:(y*fator+1)*res,w:res,h:res});
   desenhaRect("#000",{x:(x*fator+1)*res,y:(y*fator+2)*res,w:res,h:res});
-  desenhaRect("#F00",{x:x*fator*res,y:y*fator*res,w:res,h:res});
+}
+desenhaRicardo = (x,y) =>{
+  desenhaPixelUpscaled("#000",x,y)
 }
 const desenhaPixelUpscaled = (cor, x, y) => {
   for (var fy = 0; fy < fator; fy++) {
@@ -236,7 +272,6 @@ const desenhaPixelUpscaled = (cor, x, y) => {
       });
     }
   }
-  // desenhaRect("#F00",{x:x*fator*res,y:y*fator*res,w:res,h:res});
 };
 
 const desenhaRect = (cor, rect) => {
@@ -246,7 +281,7 @@ const desenhaRect = (cor, rect) => {
 
 const mudaDirCobrinha = (dir) => {
   let DIRCOBRINHA = {x:0,y:0};
-
+  
   switch(dir){
       case "ESQUERDA":
           if(DIRCOBRINHA.x === 0)
@@ -266,8 +301,10 @@ const mudaDirCobrinha = (dir) => {
           break;    
   }
 
-  let posCabeca = achaObjeto('cabeca');
-  treco[posCabeca[0]][posCabeca[1]].direcao = DIRCOBRINHA
+  let posZé = achaObjeto('zé');
+  let dirAtual = treco[posZé[0]][posZé[1]].direcao;
+  if(Math.abs(dirAtual.x + DIRCOBRINHA.x) === 1 || Math.abs(dirAtual.y + DIRCOBRINHA.y) === 1)
+    treco[posZé[0]][posZé[1]].direcao = DIRCOBRINHA
 
 }
 
